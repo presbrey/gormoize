@@ -1,7 +1,6 @@
 package gormoize
 
 import (
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -26,9 +25,9 @@ func DefaultOptions() Options {
 	}
 }
 
-type dbCacheEntry struct {
-	db       *gorm.DB
-	lastUsed time.Time
+// DBCache provides thread-safe caching of database connections
+type dsnCache struct {
+	*baseCache
 }
 
 // ByDSN creates a new DSNCache instance with the given options.
@@ -39,24 +38,9 @@ func ByDSN(opts *Options) *dsnCache {
 		options = *opts
 	}
 
-	cache := &dsnCache{
-		dbCache:         make(map[string]*dbCacheEntry),
-		cacheMutex:      sync.RWMutex{},
-		cleanupInterval: options.CleanupInterval,
-		maxAge:          options.MaxAge,
-	}
-	if options.MaxAge > 0 {
-		go cache.startCleanup()
-	}
+	cache := &dsnCache{}
+	cache.baseCache = newBaseCache(options)
 	return cache
-}
-
-// DBCache provides thread-safe caching of database connections
-type dsnCache struct {
-	dbCache         map[string]*dbCacheEntry
-	cacheMutex      sync.RWMutex
-	cleanupInterval time.Duration
-	maxAge          time.Duration
 }
 
 // Get returns a cached gorm.DB instance for the given DSN if it exists.
@@ -67,13 +51,13 @@ func (c *dsnCache) Get(dsn string) *gorm.DB {
 	defer c.cacheMutex.RUnlock()
 
 	if entry, exists := c.dbCache[dsn]; exists {
-		entry.lastUsed = time.Now() // Update last used time
+		entry.lastUsed = time.Now()
 		return entry.db
 	}
 	return nil
 }
 
-// OpenDSN returns a gorm.Dialector for the given DSN. If a dialector for this DSN
+// Open returns a gorm.Dialector for the given DSN. If a dialector for this DSN
 // has already been created, the cached instance is returned. This method is
 // safe for concurrent use.
 func (c *dsnCache) Open(fn func(dsn string) gorm.Dialector, dsn string, opts ...gorm.Option) (*gorm.DB, error) {
@@ -103,32 +87,4 @@ func (c *dsnCache) Open(fn func(dsn string) gorm.Dialector, dsn string, opts ...
 		lastUsed: time.Now(),
 	}
 	return db, nil
-}
-
-// startCleanup starts the cleanup routine that removes old connections
-func (c *dsnCache) startCleanup() {
-	if c.maxAge <= 0 {
-		return
-	}
-	ticker := time.NewTicker(c.cleanupInterval)
-	for range ticker.C {
-		c.cleanup()
-	}
-}
-
-// cleanup removes connections that haven't been used for longer than maxAge
-func (c *dsnCache) cleanup() {
-	c.cacheMutex.Lock()
-	defer c.cacheMutex.Unlock()
-
-	now := time.Now()
-	for dsn, entry := range c.dbCache {
-		if now.Sub(entry.lastUsed) > c.maxAge {
-			sqlDB, err := entry.db.DB()
-			if err == nil {
-				sqlDB.Close() // Close the underlying connection
-			}
-			delete(c.dbCache, dsn)
-		}
-	}
 }
