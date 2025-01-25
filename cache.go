@@ -41,6 +41,7 @@ func ByDSN(opts *Options) *dsnCache {
 
 	cache := &dsnCache{
 		dbCache:         make(map[string]*dbCacheEntry),
+		cacheMutex:      sync.RWMutex{},
 		cleanupInterval: options.CleanupInterval,
 		maxAge:          options.MaxAge,
 	}
@@ -58,18 +59,28 @@ type dsnCache struct {
 	maxAge          time.Duration
 }
 
+// Get returns a cached gorm.DB instance for the given DSN if it exists.
+// If no instance exists for the DSN, returns nil.
+// This method is safe for concurrent use.
+func (c *dsnCache) Get(dsn string) *gorm.DB {
+	c.cacheMutex.RLock()
+	defer c.cacheMutex.RUnlock()
+
+	if entry, exists := c.dbCache[dsn]; exists {
+		entry.lastUsed = time.Now() // Update last used time
+		return entry.db
+	}
+	return nil
+}
+
 // OpenDSN returns a gorm.Dialector for the given DSN. If a dialector for this DSN
 // has already been created, the cached instance is returned. This method is
 // safe for concurrent use.
 func (c *dsnCache) Open(fn func(dsn string) gorm.Dialector, dsn string, opts ...gorm.Option) (*gorm.DB, error) {
 	// Try to get from cache first
-	c.cacheMutex.RLock()
-	if entry, exists := c.dbCache[dsn]; exists {
-		entry.lastUsed = time.Now() // Update last used time
-		c.cacheMutex.RUnlock()
-		return entry.db, nil
+	if db := c.Get(dsn); db != nil {
+		return db, nil
 	}
-	c.cacheMutex.RUnlock()
 
 	// Not in cache, create new with write lock
 	c.cacheMutex.Lock()
