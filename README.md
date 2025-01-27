@@ -1,3 +1,6 @@
+[![Go](https://github.com/presbrey/gormoize/actions/workflows/go.yml/badge.svg)](https://github.com/presbrey/gormoize/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/presbrey/gormoize)](https://goreportcard.com/report/github.com/presbrey/gormoize)
+
 # gormoize
 
 gormoize is a Go package that provides thread-safe caching for GORM database connections. It helps manage and reuse database connections efficiently while preventing connection leaks in concurrent applications.
@@ -87,3 +90,13 @@ gormoize is designed for concurrent use. All operations on the connection cache 
 - MaxAge: 30 minutes
 
 These can be modified using the Options struct when creating a new cache.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License
+
+Copyright (c) 2025 Joe Presbrey
