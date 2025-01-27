@@ -1,5 +1,7 @@
-[![Go](https://github.com/presbrey/gormoize/actions/workflows/go.yml/badge.svg)](https://github.com/presbrey/gormoize/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/presbrey/gormoize)](https://goreportcard.com/report/github.com/presbrey/gormoize)
+[![codecov](https://codecov.io/gh/presbrey/gormoize/graph/badge.svg?token=DOVXA9MJAP)](https://codecov.io/gh/presbrey/gormoize)
+[![Go](https://github.com/presbrey/gormoize/actions/workflows/go.yml/badge.svg)](https://github.com/presbrey/gormoize/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/presbrey/gormoize.svg)](https://pkg.go.dev/github.com/presbrey/gormoize)
 
 # gormoize
 
