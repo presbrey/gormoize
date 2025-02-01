@@ -2,10 +2,12 @@ package gormoize_test
 
 import (
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/presbrey/gormoize"
 	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestOpen(t *testing.T) {
@@ -106,4 +108,69 @@ func TestGet(t *testing.T) {
 			t.Error("expected same database connection for multiple gets")
 		}
 	})
+}
+
+func TestConcurrentOpen(t *testing.T) {
+	// Clean up test database after tests
+	const testDSN = "concurrent_test.db"
+	defer os.Remove(testDSN)
+
+	cache := gormoize.ByDSN(nil)
+	const numGoroutines = 10
+
+	// Create channels to synchronize goroutines
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	var dbs [numGoroutines]*gorm.DB
+	var errs [numGoroutines]error
+
+	// Launch multiple goroutines that will try to open the database simultaneously
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			// Wait for the start signal
+			<-start
+			dbs[idx], errs[idx] = cache.Open(sqlite.Open, testDSN)
+		}(i)
+	}
+
+	// Start all goroutines at once
+	close(start)
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+
+	// Check results
+	for i := 0; i < numGoroutines; i++ {
+		if errs[i] != nil {
+			t.Errorf("goroutine %d failed to open database: %v", i, errs[i])
+			continue
+		}
+		if dbs[i] == nil {
+			t.Errorf("goroutine %d got nil database", i)
+			continue
+		}
+	}
+
+	// If first connection is nil, we can't continue testing
+	if dbs[0] == nil {
+		t.Fatal("first database connection is nil")
+	}
+
+	// Verify all goroutines got the same database connection
+	for i := 1; i < numGoroutines; i++ {
+		if dbs[i] == nil {
+			continue // Skip nil connections as we've already reported them
+		}
+		if dbs[i] != dbs[0] {
+			t.Errorf("goroutine %d got different database connection", i)
+		}
+	}
+
+	// Test database connectivity
+	err := dbs[0].Raw("SELECT 1").Error
+	if err != nil {
+		t.Errorf("database connection not working: %v", err)
+	}
 }

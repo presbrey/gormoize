@@ -18,8 +18,9 @@ type baseCache struct {
 	cacheMutex      sync.RWMutex
 	cleanupInterval time.Duration
 	maxAge          time.Duration
-	dbCache         map[string]*dbCacheEntry
+	mockDB          *gorm.DB
 	stopCleanup     chan struct{}
+	dbCache         map[string]*dbCacheEntry
 }
 
 // newBaseCache creates a new baseCache instance with the given options
@@ -77,6 +78,13 @@ func (c *baseCache) startCleanup() {
 			return
 		}
 	}
+}
+
+// mockDB returns the mock DB used for testing
+func (c *baseCache) SetMockDB(db *gorm.DB) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+	c.mockDB = db
 }
 
 // Stop stops the cleanup routine

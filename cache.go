@@ -50,6 +50,10 @@ func (c *dsnCache) Get(dsn string) *gorm.DB {
 	c.cacheMutex.RLock()
 	defer c.cacheMutex.RUnlock()
 
+	if c.mockDB != nil {
+		return c.mockDB
+	}
+
 	if entry, exists := c.dbCache[dsn]; exists {
 		entry.lastUsed = time.Now()
 		return entry.db
@@ -61,9 +65,8 @@ func (c *dsnCache) Get(dsn string) *gorm.DB {
 // has already been created, the cached instance is returned. This method is
 // safe for concurrent use.
 func (c *dsnCache) Open(fn func(dsn string) gorm.Dialector, dsn string, opts ...gorm.Option) (*gorm.DB, error) {
-	// Try to get from cache first
-	if db := c.Get(dsn); db != nil {
-		return db, nil
+	if c.mockDB != nil {
+		return c.mockDB, nil
 	}
 
 	// Not in cache, create new with write lock

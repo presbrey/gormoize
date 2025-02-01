@@ -50,4 +50,21 @@ func TestBaseCache(t *testing.T) {
 		}
 	})
 
+	t.Run("SetMockDB sets mock database", func(t *testing.T) {
+		cache := newBaseCache(Options{})
+		mockDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		if err != nil {
+			t.Fatalf("failed to create mock DB: %v", err)
+		}
+
+		cache.SetMockDB(mockDB)
+
+		cache.cacheMutex.RLock()
+		defer cache.cacheMutex.RUnlock()
+		
+		if cache.mockDB != mockDB {
+			t.Error("mockDB was not set correctly")
+		}
+	})
+
 }

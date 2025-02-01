@@ -93,6 +93,53 @@ gormoize is designed for concurrent use. All operations on the connection cache 
 
 These can be modified using the Options struct when creating a new cache.
 
+## Testing with Mock Databases
+
+gormoize provides support for mock databases in testing scenarios. You can set a mock database for your tests using the `SetMockDB` method:
+
+```go
+package main
+
+import (
+    "testing"
+    "github.com/presbrey/gormoize"
+    "gorm.io/driver/sqlite"
+    "gorm.io/gorm"
+)
+
+func TestMyFunction(t *testing.T) {
+    // Create a new cache
+    cache := gormoize.ByDSN(nil)
+    
+    // Create a mock database (using SQLite in-memory for this example)
+    mockDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+    if err != nil {
+        t.Fatalf("failed to create mock DB: %v", err)
+    }
+    
+    // Set the mock database
+    cache.SetMockDB(mockDB)
+    
+    // Now any calls to cache.Open() will return the mock database
+    // regardless of the provided DSN
+    db, err := cache.Open(sqlite.Open, "any_dsn")
+    if err != nil {
+        t.Fatal(err)
+    }
+    
+    // Use the mock database in your tests
+    // ...
+}
+```
+
+The mock database feature is particularly useful for:
+- Unit testing without actual database connections
+- Testing error scenarios
+- Ensuring consistent test behavior
+- Speeding up test execution
+
+Note that the mock database will be used for all subsequent `Open` calls until it is cleared or the cache is stopped.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
