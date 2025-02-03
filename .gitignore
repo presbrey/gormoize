@@ -1,2 +1,33 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Python specific ignores
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*$py.class
+
+# macOS specific ignores
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Build outputs
+*.a
+*.o
+
+# Test binaries (built with 'go test -c')
+*.test
+
+# Output of the Go coverage tool: will create a file ending in .out
+*.out
+
+# Dependency directories (managed by dep or Go modules)
+vendor/
 .aider*
 .env

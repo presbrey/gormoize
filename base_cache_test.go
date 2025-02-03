@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -42,12 +43,8 @@ func TestBaseCache(t *testing.T) {
 		_, staleExists := cache.dbCache["stale"]
 		cache.cacheMutex.RUnlock()
 
-		if !freshExists {
-			t.Error("fresh item should not be cleaned up")
-		}
-		if staleExists {
-			t.Error("stale item should be cleaned up")
-		}
+		assert.True(t, freshExists, "fresh item should not be cleaned up")
+		assert.False(t, staleExists, "stale item should be cleaned up")
 	})
 
 	t.Run("SetMockDB sets mock database", func(t *testing.T) {
@@ -59,17 +56,44 @@ func TestBaseCache(t *testing.T) {
 
 		cache.SetMockDB(mockDB)
 		db := cache.Get("any")
-		if db != mockDB {
-			t.Error("mockDB was not set correctly")
-		}
+		assert.Equal(t, mockDB, db, "mockDB was not set correctly")
 
 		// Verify that mockDB is set correctly
 		cache.cacheMutex.RLock()
 		defer cache.cacheMutex.RUnlock()
 
-		if cache.mockDB != mockDB {
-			t.Error("mockDB was not set correctly")
-		}
+		assert.Equal(t, mockDB, cache.mockDB, "mockDB was not set correctly")
+
+		mockDB, err = cache.Open(sqlite.Open, "any")
+		assert.NoError(t, err)
+		assert.Equal(t, mockDB, cache.mockDB)
 	})
 
+	t.Run("Set adds entry to cache", func(t *testing.T) {
+		// Create a new baseCache instance using default options
+		opts := Options{
+			CleanupInterval: time.Hour,
+			MaxAge:          time.Hour,
+		}
+		cache := newBaseCache(opts)
+
+		// Create a fake *gorm.DB instance. In a real test, you might use a mock or a real DB connection.
+		fakeDB := &gorm.DB{}
+		key := "test-key"
+
+		// Call the Set method to add the fakeDB to the cache
+		cache.Set(key, fakeDB)
+
+		// Verify that the entry exists in the cache
+		cache.cacheMutex.RLock()
+		entry, exists := cache.dbCache[key]
+		cache.cacheMutex.RUnlock()
+		assert.True(t, exists, "expected key %q to be present in the cache", key)
+
+		// Check that the stored db pointer is correct
+		assert.Equal(t, fakeDB, entry.db, "expected stored db pointer to match")
+
+		// Ensure that lastUsed is set to a recent time (within the last 2 seconds)
+		assert.WithinDuration(t, time.Now(), entry.lastUsed, 2*time.Second, "expected entry.lastUsed to be recent")
+	})
 }

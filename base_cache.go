@@ -110,6 +110,17 @@ func (c *baseCache) Stop() {
 	}
 }
 
+// Set adds or updates the cache entry for the provided key with the given *gorm.DB instance.
+func (c *baseCache) Set(key string, db *gorm.DB) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+	// Add or update the cache entry with the current time
+	c.dbCache[key] = &dbCacheEntry{
+		db:       db,
+		lastUsed: time.Now(),
+	}
+}
+
 // cleanup removes items that haven't been used for longer than maxAge
 func (c *baseCache) cleanup() {
 	c.cacheMutex.Lock()
