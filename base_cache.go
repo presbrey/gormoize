@@ -15,21 +15,23 @@ type dbCacheEntry struct {
 
 // baseCache provides common caching functionality with cleanup support
 type baseCache struct {
-	cacheMutex      sync.RWMutex
+	cacheMutex sync.RWMutex
+	dbCache    map[string]*dbCacheEntry
+
 	cleanupInterval time.Duration
 	maxAge          time.Duration
 	mockDB          *gorm.DB
 	stopCleanup     chan struct{}
-	dbCache         map[string]*dbCacheEntry
 }
 
 // newBaseCache creates a new baseCache instance with the given options
 func newBaseCache(opts Options) *baseCache {
 	cache := &baseCache{
-		cacheMutex:      sync.RWMutex{},
+		cacheMutex: sync.RWMutex{},
+		dbCache:    make(map[string]*dbCacheEntry),
+
 		cleanupInterval: opts.CleanupInterval,
 		maxAge:          opts.MaxAge,
-		dbCache:         make(map[string]*dbCacheEntry),
 		stopCleanup:     make(chan struct{}),
 	}
 	if opts.MaxAge > 0 {
@@ -49,12 +51,18 @@ func (c *baseCache) lastUsed() map[string]time.Time {
 
 // cleanupItem removes the specified item from the cache and performs any necessary cleanup
 func (c *baseCache) cleanupItem(key string) {
-	if entry, exists := c.dbCache[key]; exists {
-		sqlDB, err := entry.db.DB()
-		if err == nil {
-			sqlDB.Close()
-		}
-		delete(c.dbCache, key)
+	entry, exists := c.dbCache[key]
+	if !exists {
+		return
+	}
+
+	// remove the specified item from the cache
+	delete(c.dbCache, key)
+
+	// close the database connection
+	sqlDB, err := entry.db.DB()
+	if err == nil {
+		sqlDB.Close()
 	}
 }
 
@@ -87,8 +95,16 @@ func (c *baseCache) SetMockDB(db *gorm.DB) {
 	c.mockDB = db
 }
 
-// Stop stops the cleanup routine
+// Stop stops the cleanup routine and closes all database connections
 func (c *baseCache) Stop() {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+
+	// Clean up all database connections
+	for key := range c.dbCache {
+		c.cleanupItem(key)
+	}
+
 	if c.maxAge > 0 {
 		close(c.stopCleanup)
 	}
