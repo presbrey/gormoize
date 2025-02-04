@@ -1,7 +1,6 @@
 package gormoize
 
 import (
-	"log"
 	"sync"
 	"time"
 
@@ -128,7 +127,6 @@ func (c *baseCache) cleanup() {
 
 	now := time.Now()
 	for key, lastUsed := range c.lastUsed() {
-		log.Printf("key: %s, lastUsed: %v, now: %v, maxAge: %v", key, lastUsed, now, c.maxAge)
 		if now.Sub(lastUsed) > c.maxAge {
 			c.cleanupItem(key)
 		}
