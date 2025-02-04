@@ -50,18 +50,18 @@ func (c *baseCache) lastUsed() map[string]time.Time {
 
 // cleanupItem removes the specified item from the cache and performs any necessary cleanup
 func (c *baseCache) cleanupItem(key string) {
-	entry, exists := c.dbCache[key]
-	if !exists {
-		return
-	}
+	entry := c.dbCache[key]
 
 	// remove the specified item from the cache
+	// if key is nil or DNE, this is a no-op
 	delete(c.dbCache, key)
 
-	// close the database connection
-	sqlDB, err := entry.db.DB()
-	if err == nil {
-		sqlDB.Close()
+	if entry != nil {
+		// close the database connection
+		sqlDB, err := entry.db.DB()
+		if err == nil {
+			sqlDB.Close()
+		}
 	}
 }
 
