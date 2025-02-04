@@ -67,16 +67,13 @@ func (c *baseCache) cleanupItem(key string) {
 
 // startCleanup starts the cleanup routine that removes old items
 func (c *baseCache) startCleanup() {
-	if c.maxAge <= 0 {
-		return
-	}
-
 	// Run cleanup immediately once
 	c.cleanup()
 
 	ticker := time.NewTicker(c.cleanupInterval)
 	defer ticker.Stop()
 
+	// Start cleanup loop
 	for {
 		select {
 		case <-ticker.C:

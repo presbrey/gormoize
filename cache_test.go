@@ -110,6 +110,35 @@ func TestGet(t *testing.T) {
 	})
 }
 
+func TestOpenError(t *testing.T) {
+	cache := gormoize.ByDSN(nil)
+
+	// Create a dialector function that will cause an error by using an invalid DSN
+	failDialector := func(dsn string) gorm.Dialector {
+		// Use a non-existent directory to force an error
+		return sqlite.Open("/nonexistent/directory/db.sqlite")
+	}
+
+	// Attempt to open the database
+	db, err := cache.Open(failDialector, "test")
+
+	// Verify that the error is returned
+	if err == nil {
+		t.Error("expected error when opening invalid database")
+	}
+
+	// Verify that nil is returned for the database
+	if db != nil {
+		t.Error("expected nil database when error occurs")
+	}
+
+	// Verify that the failed connection is not cached
+	cachedDB := cache.Get("test")
+	if cachedDB != nil {
+		t.Error("failed connection should not be cached")
+	}
+}
+
 func TestConcurrentOpen(t *testing.T) {
 	// Clean up test database after tests
 	const testDSN = "concurrent_test.db"

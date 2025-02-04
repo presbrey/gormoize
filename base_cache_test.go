@@ -96,4 +96,54 @@ func TestBaseCache(t *testing.T) {
 		// Ensure that lastUsed is set to a recent time (within the last 2 seconds)
 		assert.WithinDuration(t, time.Now(), entry.lastUsed, 2*time.Second, "expected entry.lastUsed to be recent")
 	})
+
+	t.Run("cleanup doesn't run when maxAge is zero or negative", func(t *testing.T) {
+		// Create base cache with zero maxAge
+		opts := Options{
+			CleanupInterval: 100 * time.Millisecond,
+			MaxAge:          0,
+		}
+
+		cache := newBaseCache(opts)
+		defer cache.Stop()
+
+		// Add test item
+		db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		cache.cacheMutex.Lock()
+		cache.dbCache["test"] = &dbCacheEntry{
+			db:       db,
+			lastUsed: time.Now().Add(-10 * time.Second),
+		}
+		cache.cacheMutex.Unlock()
+
+		// Wait for potential cleanup
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify item still exists since cleanup should not run
+		cache.cacheMutex.RLock()
+		_, exists := cache.dbCache["test"]
+		cache.cacheMutex.RUnlock()
+
+		assert.True(t, exists, "item should not be cleaned up when maxAge is 0")
+
+		// Test with negative maxAge
+		opts.MaxAge = -1 * time.Second
+		cache = newBaseCache(opts)
+		defer cache.Stop()
+
+		cache.cacheMutex.Lock()
+		cache.dbCache["test"] = &dbCacheEntry{
+			db:       db,
+			lastUsed: time.Now().Add(-10 * time.Second),
+		}
+		cache.cacheMutex.Unlock()
+
+		time.Sleep(500 * time.Millisecond)
+
+		cache.cacheMutex.RLock()
+		_, exists = cache.dbCache["test"]
+		cache.cacheMutex.RUnlock()
+
+		assert.True(t, exists, "item should not be cleaned up when maxAge is negative")
+	})
 }
